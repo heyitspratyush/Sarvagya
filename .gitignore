@@ -1,0 +1,30 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache and generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases and generated reports
+*.db
+*.sqlite
+*.sqlite3
+reports/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
