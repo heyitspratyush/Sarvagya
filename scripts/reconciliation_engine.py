@@ -1,3 +1,7 @@
+import hashlib
+import json
+
+
 def build_order_lookup(orders):
     orders_by_id = {}
     for order in orders:
@@ -26,8 +30,40 @@ def group_attempts_by_order(orders_by_id, attempts):
 
     return attempts_by_order, unlinked_attempts
 
+
+def make_finding_id(finding_type, *identity_parts):
+  
+
+    # Create a structured identity from the finding type
+    # and the entities responsible for the finding.
+    identity = [
+        finding_type,
+        *identity_parts
+    ]
+
+    # Convert the identity into a consistent string.
+    identity_text = json.dumps(
+        identity,
+        separators=(",", ":"),
+        ensure_ascii=True
+    )
+
+    # Generate a SHA-256 digest.
+    digest = hashlib.sha256(
+        identity_text.encode("utf-8")
+    ).hexdigest()
+
+    # Keep the ID within the database column's 50-character limit.
+    return "FND-" + digest[:40]
+
+
 def make_unlinked_attempt_finding(attempt):
     return {
+        "finding_id": make_finding_id(
+            "ORDER_ATTEMPT_LINK",
+            attempt["ATTEMPT_ID"],
+            attempt["ORDER_ID"]
+        ),
         "finding_type": "ORDER_ATTEMPT_LINK",
         "classification": "ATTEMPT_REFERENCES_UNKNOWN_ORDER",
         "resolution_status": "UNRESOLVED",
