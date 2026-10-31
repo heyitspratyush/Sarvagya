@@ -14,10 +14,20 @@ Reconciliation is an established problem with existing commercial products. Sett
 - Calculates settlement header net as gross minus fees, refunds, and chargebacks, plus the signed adjustment, using `Decimal`; the difference is expected net minus reported net.
 - Compares a settlement batch to bank rows by exact batch reference. It preserves multiple bank candidates and does not choose by amount.
 - Compares a settlement timestamp with the explicit expected settlement date in its header. It does not assume universal T+2 or infer a cause for lateness.
-- Persists findings and source evidence in Exasol and provides a **terminal-based** human-readable investigation report. There is no graphical dashboard.
+- Persists findings and source evidence in Exasol and provides both a **merchant-friendly graphical dashboard** (`gui/`) and a **terminal-based** investigation report (`scripts/inspect_reconciliation_state.py`).
 - Generates an isolated, reproducible benchmark with local independent ground truth and read-only Exasol analytics.
 
 Missing evidence is unverified or unresolved; it is not automatically treated as failure. Equal amounts do not prove identity. Duplicate source rows do not, by themselves, prove duplicate collections.
+
+## Submission deliverables
+
+| Item | Details | Link |
+|---|---|---|
+| **Demonstration Video** | 3-minute video walkthrough (40.83 MB) | [`submission/demo.mp4`](submission/demo.mp4) |
+| **Submission Guide** | Video specs, pitch deck checklist, and delivery notes | [`submission/README.md`](submission/README.md) |
+| **Merchant Graphical Interface** | Interactive Flask dashboard with 5-stage lifecycle flow | [`gui/`](gui/) |
+| **Deterministic Engine** | Multi-layer reconciliation with Decimal arithmetic | [`scripts/reconciliation_engine.py`](scripts/reconciliation_engine.py) |
+| **Exasol Benchmark** | Verified FINAL10K03 10,000-order pipeline | [`scripts/benchmark_pipeline.py`](scripts/benchmark_pipeline.py) |
 
 ## Reconciliation layers
 
@@ -39,7 +49,7 @@ Financial and timing outcomes are separate. A late settlement can be financially
 3. Exasol SQL performs analytical joins and aggregation. Existing queries are under `sql/analytics/`; the benchmark has five grouped queries under `sql/benchmark/` for attempt profiles, explicit-reference identity candidates, settlement components, bank references, and timing.
 4. `scripts/reconciliation_data.py` reads source rows over one central connection and excludes benchmark-prefixed rows from the ordinary reconciliation scan. `scripts/reconciliation_engine.py` applies deterministic Python rules without fuzzy or amount-only identity matching.
 5. `scripts/reconciliation_persistence.py` stores supported findings in `RECONCILIATION_FINDINGS` and entity evidence in `FINDING_EVIDENCE`. Serialized `EVIDENCE_SUMMARY` retains finding details, evidence and limitations; source-row lineage is kept in the finding payload where applicable.
-6. `scripts/inspect_reconciliation_state.py` retrieves persisted findings and evidence and renders them in a terminal report. `scripts/finding_presentation.py` formats the structured results without changing engine decisions.
+6. `scripts/inspect_reconciliation_state.py` retrieves persisted findings and evidence and renders them in a terminal report. The **merchant-friendly graphical dashboard** (`gui/`) provides an interactive web interface atop `scripts/finding_presentation.py` and `scripts/reconciliation_engine.py`, offering executive financial metrics, a 5-stage lifecycle flow, and actionable investigation drawers.
 7. Benchmark predictions are written locally as JSONL; independent ground truth remains local and is read only by the evaluator after prediction. Benchmark findings are not persisted into the normal findings tables.
 
 The benchmark SQL aggregates inside Exasol; it does not move all source rows to Python for those five reports. Benchmark reconciliation retrieves at most 500 order indices per slice. No MCP integration is implemented or verified.
@@ -48,11 +58,15 @@ The benchmark SQL aggregates inside Exasol; it does not move all source rows to 
 
 - Python 3.10 or newer; the checked environment uses Python 3.14.
 - Exasol with PyExasol 3.0.0 (`requirements.txt`).
+- Flask web framework (`requirements.txt`) for the merchant graphical interface.
 - SQL for source tables, synthetic scenarios, and analytics.
 - `Decimal` monetary arithmetic; SQLite is used only as a temporary offline validator.
-- Pytest tests (live schema tests require Exasol).
+- Pytest test suite (both offline engine/GUI tests and live schema tests).
 
 ```text
+gui/                         Merchant graphical interface (Flask app, templates, static assets)
+gui/scenario_fixtures.py     Offline GT01–GT15 scenario parser and CSV ingestion
+submission/                  ExaThon deliverables (demonstration video, submission guide)
 sql/schema/                  Exasol source and findings table definitions
 sql/analytics/               Existing analytical queries
 sql/benchmark/               Five benchmark analytical queries
@@ -160,7 +174,54 @@ python -m scripts.inspect_reconciliation_state findings --search GT13
 python -m scripts.inspect_reconciliation_state findings --show FINDING-ID-PREFIX --technical
 ```
 
-Replace `FINDING-ID-PREFIX` with the full finding ID or a unique prefix returned by the findings list. The inspector is a terminal report, not a graphical interface. The technical option preserves access to full IDs and stored evidence payloads.
+Replace `FINDING-ID-PREFIX` with the full finding ID or a unique prefix returned by the findings list. The inspector is a terminal report, while the graphical interface provides an interactive browser-based dashboard. The technical option preserves access to full IDs and stored evidence payloads.
+
+## Merchant graphical interface
+
+SettlementLens includes a modern, merchant-friendly web interface designed for finance, operations, and audit teams to visualize reconciliation lifecycles, monitor financial variances, and resolve discrepancies without running terminal commands or raw SQL.
+
+### Features
+
+- **Executive KPI Ribbon**: Real-time totals for Gross Order Volume (₹), Net Discrepancies, Delayed Settlements, and Verified Bank Credits.
+- **5-Stage Lifecycle Funnel**: Interactive visual trace across `1. Orders` ➔ `2. Payment Attempts` ➔ `3. Processor Captures` ➔ `4. Settlement Batches` ➔ `5. Bank Deposits`. Clicking any stage filters findings directly to that reconciliation layer.
+- **Interactive Findings Explorer**: Real-time multi-layer filtering, status filtering (*Action Required* vs. *Resolved*), live search across Order and Batch IDs, and direct CSV export.
+- **Merchant Investigation Drawer**: Plain-English explanations translated from technical classifications, exact financial delta breakdowns formatted in Indian number groupings (₹), settlement timeline comparisons, click-to-copy entity evidence badges, and a collapsible developer audit trail.
+- **Zero-Setup Scenario Runner**: 1-click loading and execution for all synthetic scenarios (`GT01`–`GT15`) or a combined benchmark test suite offline.
+- **CSV Statement Ingestion**: Upload custom merchant commerce, gateway, settlement, or bank CSV statement feeds with downloadable template formats.
+
+### How to start the graphical interface
+
+Start the interface locally using any of the following methods:
+
+**Cross-platform / Linux / macOS / WSL**:
+```bash
+python -m gui.app
+```
+
+**Windows (1-Click Launchers)**:
+- Double-click `gui/run_gui.bat`
+- Or run `.\gui\run_gui.ps1` in PowerShell.
+
+Once started, open your web browser and navigate to:
+```
+http://127.0.0.1:5000
+```
+*(The listening port can be customized by setting the `PORT` environment variable).*
+
+## Running tests
+
+The test suite covers the deterministic reconciliation engine, presentation formatters, offline benchmark generators, and the merchant graphical interface:
+
+```bash
+# Run all offline unit tests (engine, presentation, benchmarks, and GUI)
+pytest tests/test_gui.py tests/test_reconciliation_engine.py tests/test_finding_presentation.py -v
+
+# Run full test suite excluding live database dependencies
+pytest -k "not live"
+
+# Run all tests including live Exasol schema tests (requires active Exasol instance)
+pytest
+```
 
 ## Scalable synthetic benchmark
 
@@ -217,16 +278,16 @@ These are synthetic benchmark results, not a comparison with another database or
 
 ## Implemented, verified, and deferred
 
-**Implemented:** existing GT01–GT15 fixture SQL; deterministic reconciliation and evidence persistence; read-only terminal inspection; offline 10k/100k generator and validator; isolated bulk-loader, SQL analytics, bounded benchmark reconciliation, local evaluator, and readable local prediction commands.
+**Implemented:** existing GT01–GT15 fixture SQL; deterministic reconciliation and evidence persistence; read-only terminal inspection; merchant graphical web interface (`gui/`) with offline scenario runner and CSV statement ingestion; offline 10k/100k generator and validator; isolated bulk-loader, SQL analytics, bounded benchmark reconciliation, local evaluator, and readable local prediction commands.
 
-**Verified:** 10k `FINAL10K03` generation, validation, load counts, separate count verification, five Exasol analytics queries, 10k reconciliation, and primary/financial evaluation as reported above. Offline tests also cover the generator, loader mocks, formatter, evaluator, and reconciliation engine. The live schema test suite requires an Exasol connection.
+**Verified:** 10k `FINAL10K03` generation, validation, load counts, separate count verification, five Exasol analytics queries, 10k reconciliation, and primary/financial evaluation as reported above. Automated offline tests cover the merchant GUI (`tests/test_gui.py`), reconciliation engine (`tests/test_reconciliation_engine.py`), formatter (`tests/test_finding_presentation.py`), generator, loader mocks, and evaluator. The live schema test suite requires an Exasol connection.
 
-**Not verified or deferred:** 100k live ingestion or Exasol execution; a graphical interface; real processor/bank integrations; FX or additional currencies; LLM/fuzzy matching; MCP integration; and deployment/production hardening. No MCP integration is demonstrated in the repository.
+**Not verified or deferred:** 100k live ingestion or Exasol execution; real processor/bank integrations; FX or additional currencies; LLM/fuzzy matching; MCP integration; and deployment/production hardening. No MCP integration is demonstrated in the repository.
 
 ## Limitations and future work
 
 - One synthetic merchant and INR only; no real-world feeds or FX.
-- Terminal investigation only; no graphical dashboard.
+- The web interface is a local dashboard for exploration, audit, and offline CSV reconciliation; enterprise auth and cloud multi-tenancy are deferred.
 - Incomplete evidence remains unresolved/unverified. Findings explain available evidence and do not invent causes.
 - Current schema bootstrap requires manual care for `ORDERS`; `create_orders.py` references a missing SQL file.
 - Benchmark run isolation relies on ID prefixes because source tables have no run-ID column.
