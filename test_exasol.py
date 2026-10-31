@@ -1,19 +1,17 @@
+"""Manual Exasol connection smoke test; not executed during pytest collection."""
 
-import pyexasol
-import getpass
+from scripts.analytics_connection import get_analytics_connection
 
-password = getpass.getpass("Enter Exasol SYS password: ")
 
-conn = pyexasol.connect(
-    dsn="127.0.0.1:8563",
-    user="sys",
-    password=password,
-    websocket_sslopt={"cert_reqs": 0},
-)
+def main():
+    connection = get_analytics_connection()
+    try:
+        result = connection.execute("SELECT 1").fetchall()
+        print("Connection successful!")
+        print("Query result:", result)
+    finally:
+        connection.close()
 
-try:
-    result = conn.execute("SELECT 1").fetchall()
-    print("Connection successful!")
-    print("Query result:", result)
-finally:
-    conn.close()
+
+if __name__ == "__main__":
+    main()

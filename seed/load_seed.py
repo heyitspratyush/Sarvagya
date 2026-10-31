@@ -1,13 +1,13 @@
 
-import getpass
 import sys
 from pathlib import Path
 
-import pyexasol
-
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = PROJECT_ROOT / "seed" / "data"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.analytics_connection import get_analytics_connection
 
 
 def main():
@@ -26,14 +26,7 @@ def main():
     if not sql_file.is_file():
         raise FileNotFoundError(f"Seed file not found: {sql_file}")
 
-    password = getpass.getpass("Enter Exasol SYS password: ")
-
-    conn = pyexasol.connect(
-        dsn="127.0.0.1:8563",
-        user="sys",
-        password=password,
-        websocket_sslopt={"cert_reqs": 0},
-    )
+    conn = get_analytics_connection()
 
     try:
         sql_text = sql_file.read_text(encoding="utf-8")

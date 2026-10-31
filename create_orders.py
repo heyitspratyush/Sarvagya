@@ -1,23 +1,14 @@
 
 from pathlib import Path
-import getpass
-import pyexasol
+
+from scripts.analytics_connection import get_analytics_connection
 
 # Locate the SQL file relative to this Python script.
 SQL_FILE = Path(__file__).parent / "sql" / "create_schema.sql"
 
 
 def main():
-    # Ask for the Exasol password without displaying it.
-    password = getpass.getpass("Enter Exasol SYS password: ")
-
-    # Connect Python to the local Exasol instance.
-    conn = pyexasol.connect(
-        dsn="127.0.0.1:8563",
-        user="sys",
-        password=password,
-        websocket_sslopt={"cert_reqs": 0},
-    )
+    conn = get_analytics_connection()
 
     try:
         conn.execute("CREATE SCHEMA IF NOT EXISTS SARVAGYA")

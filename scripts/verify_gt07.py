@@ -1,18 +1,11 @@
 
-import getpass
 from datetime import datetime, time, timedelta
-import pyexasol
+
+from analytics_connection import get_analytics_connection
 
 CUTOFF = time(15, 0)
 
-password = getpass.getpass("Enter Exasol SYS password: ")
-
-conn = pyexasol.connect(
-    dsn="127.0.0.1:8563",
-    user="sys",
-    password=password,
-    websocket_sslopt={"cert_reqs": 0},
-)
+conn = get_analytics_connection()
 
 try:
     rows = conn.execute("""

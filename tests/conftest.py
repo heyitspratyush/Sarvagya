@@ -1,23 +1,13 @@
-
-import getpass
-
-import pyexasol
 import pytest
+
+from scripts.analytics_connection import get_analytics_connection
 
 
 @pytest.fixture(scope="session")
 def exasol_connection():
-    """Provide one Exasol connection for the test session."""
-    password = getpass.getpass("Enter Exasol SYS password: ")
-
-    conn = pyexasol.connect(
-        dsn="127.0.0.1:8563",
-        user="sys",
-        password=password,
-        websocket_sslopt={"cert_reqs": 0},
-    )
-
+    """Provide one centrally authenticated connection to live schema tests."""
+    connection = get_analytics_connection()
     try:
-        yield conn
+        yield connection
     finally:
-        conn.close()
+        connection.close()
